@@ -1,41 +1,21 @@
+// main.rs
 use std::env;
-use std::fs::File;
 use std::io;
-use std::io::prelude::*;
 
-fn read_png_file(file_path: &str) -> io::Result<Vec<u8>> {
-    let mut file = File::open(file_path)?;
-    let mut buffer = Vec::new();
-    file.read_to_end(&mut buffer)?;
-    Ok(buffer)
-}
+mod png;
 
-fn main() {
+fn main() -> io::Result<()> {
     let args: Vec<String> = env::args().collect();
     if args.len() < 2 {
         eprintln!("Usage: {} <input.png>", args[0]);
-        eprint!("No input file specified");
-        return;
+        return Ok(());
     }
     let file_path = &args[1];
-    match read_png_file(file_path) {
-        Ok(buffer) => {
-            println!("Read {} bytes from {}", buffer.len(), file_path);
-        }
-        Err(error) => {
-            eprintln!("Error reading {}: {}", file_path, error);
-        }
+    let mut reader = png::PngReader::new(file_path)?;
+    let raw_png = reader.read_png()?;
+    println!("Header: {:?}", raw_png.header);
+    for chunk in raw_png.chunks {
+        println!("{}", chunk);
     }
+    Ok(())
 }
-
-// fn main() {
-//     let file_path = "./data/fun.png";
-//     match read_png_file(file_path) {
-//         Ok(buffer) => {
-//             println!("Read {} bytes from {}", buffer.len(), file_path);
-//         }
-//         Err(error) => {
-//             eprintln!("Error reading {}: {}", file_path, error);
-//         }
-//     }
-// }
