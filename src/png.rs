@@ -4,6 +4,18 @@ use std::fs::File;
 use std::io;
 use std::io::prelude::*;
 
+fn crc32(data: &[u8]) -> u32 {
+    let mut crc = !0;
+    for byte in data {
+        crc ^= *byte as u32;
+        for _ in 0..8 {
+            let mask = !((crc & 1).wrapping_sub(1));
+            crc = (crc >> 1) ^ (0xedb88320 & mask);
+        }
+    }
+    !crc
+}
+
 const PNG_SIGNATURE: [u8; 8] = [137, 80, 78, 71, 13, 10, 26, 10];
 
 #[derive(Debug)]
@@ -48,8 +60,16 @@ impl Chunk {
         third_byte & 0x20 == 0
     }
 
+    fn verify_crc(&self) -> bool {
+        let mut buffer = Vec::new();
+        buffer.extend_from_slice(self.chunk_type.as_bytes());
+        buffer.extend_from_slice(&self.data);
+        crc32(&buffer) == self.crc
+    }
+
     fn is_valid(&self) -> bool {
-        self.is_critical() && self.is_public() && self.is_reserved_bit_valid()
+        self.is_critical() && self.is_public() && self.is_reserved_bit_valid() && self.verify_crc()
+        // self.verify_crc()
     }
 }
 
@@ -65,7 +85,7 @@ impl PngReader {
     }
 
     pub fn read_png(&mut self) -> io::Result<RawPng> {
-        let mut buffer = self.read_file()?;
+        let buffer = self.read_file()?;
         self.validate_png_signature(&buffer)?;
         Ok(self.png_chunk_from_buffer(&buffer))
     }
