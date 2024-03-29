@@ -1,6 +1,6 @@
 // header.rs
-use std::fmt;
 
+use crate::error::PngError;
 #[derive(Debug)]
 pub struct HeaderInfo {
     pub width: u32,
@@ -13,9 +13,9 @@ pub struct HeaderInfo {
 }
 
 impl HeaderInfo {
-    pub fn new(data: &[u8]) -> Result<Option<HeaderInfo>, String> {
+    pub fn new(data: &[u8]) -> Result<HeaderInfo, PngError> {
         if data.len() < 13 {
-            return Err("Invalid data: Insufficient bytes for header information".to_string());
+            return Err(PngError::InvalidData);
         }
 
         let width = u32::from_be_bytes([data[0], data[1], data[2], data[3]]);
@@ -26,7 +26,7 @@ impl HeaderInfo {
         let filter_method = data[11];
         let interlace_method = data[12];
 
-        Ok(Some(HeaderInfo {
+        Ok(HeaderInfo {
             width,
             height,
             bit_depth,
@@ -34,8 +34,31 @@ impl HeaderInfo {
             compression_method,
             filter_method,
             interlace_method,
-        }))
+        })
     }
+    // pub fn new(data: &[u8]) -> Result<Option<HeaderInfo>, PngError> {
+    //     if data.len() < 13 {
+    //         return Err(PngError::InvalidData);
+    //     }
+
+    //     let width = u32::from_be_bytes([data[0], data[1], data[2], data[3]]);
+    //     let height = u32::from_be_bytes([data[4], data[5], data[6], data[7]]);
+    //     let bit_depth = data[8];
+    //     let color_type = data[9];
+    //     let compression_method = data[10];
+    //     let filter_method = data[11];
+    //     let interlace_method = data[12];
+
+    //     Ok(Some(HeaderInfo {
+    //         width,
+    //         height,
+    //         bit_depth,
+    //         color_type,
+    //         compression_method,
+    //         filter_method,
+    //         interlace_method,
+    //     }))
+    // }
 
     pub fn to_string(&self) -> String {
         let color_type = match self.color_type {

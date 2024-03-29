@@ -9,7 +9,9 @@ mod image_type;
 mod png;
 mod raw_data;
 
-fn main() -> io::Result<()> {
+use error::PngError;
+
+fn main() -> Result<(), PngError> {
     let args: Vec<String> = env::args().collect();
     if args.len() < 3 {
         eprintln!("Usage: {} <input.png> <print_size>", args[0]);
@@ -20,7 +22,7 @@ fn main() -> io::Result<()> {
     let print_size = args[2].parse::<usize>().unwrap_or(20);
 
     let mut reader = png::PngReader::new(file_path)?;
-    let raw_png = reader.read_png()?;
+    let raw_png = reader.load_png()?;
     println!("{}", raw_png);
     for chunk in &raw_png.chunks {
         println!("{}", chunk);

@@ -4,6 +4,7 @@ use crate::header::HeaderInfo;
 use std::fmt;
 
 use crate::chunk::ChunkType;
+use crate::error::PngError;
 
 #[derive(Debug)]
 pub struct RawPng {
@@ -13,14 +14,22 @@ pub struct RawPng {
 }
 
 impl RawPng {
-    pub fn new(signature: [u8; 8], header: HeaderInfo, chunks: Vec<Chunk>) -> Self {
-        RawPng::is_signature_valid(signature);
-        RawPng::verify_chunk_sequence(&chunks);
-        Self {
+    pub fn new(
+        signature: [u8; 8],
+        header: HeaderInfo,
+        chunks: Vec<Chunk>,
+    ) -> Result<Self, PngError> {
+        if !RawPng::is_signature_valid(signature) {
+            return Err(PngError::InvalidSignature);
+        }
+        if !RawPng::verify_chunk_sequence(&chunks) {
+            return Err(PngError::InvalidChunkSequence);
+        }
+        Ok(Self {
             signature,
             header,
             chunks,
-        }
+        })
     }
 
     pub fn is_signature_valid(signature: [u8; 8]) -> bool {
@@ -28,20 +37,20 @@ impl RawPng {
     }
 
     pub fn verify_chunk_sequence(chunks: &Vec<Chunk>) -> bool {
-        let mut has_ihdr = false;
+        // let mut has_ihdr = false; // we deal ihdr in other part
         let mut has_idat = false;
         let mut has_iend = false;
 
         for chunk in chunks {
             match chunk.chunk_type {
-                ChunkType::IHDR => has_ihdr = true,
+                // ChunkType::IHDR => has_ihdr = true,// we deal ihdr in other part
                 ChunkType::IDAT => has_idat = true,
                 ChunkType::IEND => has_iend = true,
                 _ => {}
             }
         }
 
-        has_ihdr && has_idat && has_iend
+        has_idat && has_iend // && has_ihdr // we deal ihdr in other part
     }
 }
 

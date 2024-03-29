@@ -7,11 +7,10 @@ use std::io::prelude::*;
 use flate2::read::ZlibDecoder;
 
 use crate::chunk::{Chunk, ChunkType};
+use crate::error::PngError;
 use crate::header::HeaderInfo;
 use crate::image_type::{Brightness, VisualData, PNG};
 use crate::raw_data::RawPng;
-
-const PNG_SIGNATURE: [u8; 8] = [137, 80, 78, 71, 13, 10, 26, 10];
 
 pub struct PngReader {
     file_path: String,
@@ -24,31 +23,19 @@ impl PngReader {
         })
     }
 
-    pub fn read_png(&mut self) -> io::Result<RawPng> {
+    pub fn load_png(&mut self) -> Result<RawPng, PngError> {
         let buffer = self.read_file()?;
-        self.validate_png_signature(&buffer)?;
         self.png_chunk_from_buffer(&buffer)
     }
 
-    fn read_file(&self) -> io::Result<Vec<u8>> {
+    fn read_file(&self) -> Result<Vec<u8>, PngError> {
         let mut file = File::open(&self.file_path)?;
         let mut buffer = Vec::new();
         file.read_to_end(&mut buffer)?;
         Ok(buffer)
     }
 
-    fn validate_png_signature(&self, buffer: &[u8]) -> io::Result<()> {
-        let header = &buffer[0..8];
-        if header != PNG_SIGNATURE {
-            return Err(io::Error::new(
-                io::ErrorKind::InvalidData,
-                "Invalid PNG header",
-            ));
-        }
-        Ok(())
-    }
-
-    fn png_chunk_from_buffer(&self, buffer: &[u8]) -> io::Result<RawPng> {
+    fn png_chunk_from_buffer(&self, buffer: &[u8]) -> Result<RawPng, PngError> {
         let header_slice = &buffer[0..8];
         let mut offset = 8;
         let mut chunks = Vec::new();
@@ -61,9 +48,8 @@ impl PngReader {
             buffer[offset + 3],
         ]) as usize;
         let ihdr_data = &buffer[offset + 8..offset + 8 + ihdr_length];
-        let header_info = HeaderInfo::new(ihdr_data)
-            .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))?
-            .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "Invalid IHDR chunk"))?;
+        let header_info =
+            HeaderInfo::new(ihdr_data).map_err(|e| PngError::ParseError(e.to_string()))?;
         offset += 8 + ihdr_length + 4;
 
         // Read the remaining chunks
@@ -97,8 +83,8 @@ impl PngReader {
             chunks.push(chunk);
             offset += 8 + length + 4;
         }
-        let header: [u8; 8] = header_slice.try_into().unwrap();
-        let raw_png = RawPng::new(header, header_info, chunks);
+        let signature: [u8; 8] = header_slice.try_into().unwrap();
+        let raw_png = RawPng::new(signature, header_info, chunks)?;
         Ok(raw_png)
     }
 
